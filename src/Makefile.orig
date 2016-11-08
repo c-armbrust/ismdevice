@@ -1,5 +1,0 @@
-test:
-	g++ -std=c++14 main.cpp Commands.cpp -I "../inc" -L "../lib" -liothub_client -liothub_client_amqp_transport -laziotsharedutil -luamqp -lm -lcurl -lssl -lcrypto -lpthread -o test
-
-clean:
-	rm test

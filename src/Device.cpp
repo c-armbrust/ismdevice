@@ -88,8 +88,11 @@ IOTHUBMESSAGE_DISPOSITION_RESULT Device::ReceiveMessageCallback(IOTHUB_MESSAGE_H
             {
                 for(size_t index = 0; index < propertyCount; index++)
                 {
-                    if(std::string{keys[index]} == "command")
+					// Filter all iot hub events on a high level. 
+					// Handle only events with key EventType::COMMAND
+                    if(std::string{keys[index]} == EventType::COMMAND)
                     {
+						// Switched by CommandType::<command> delegate to _state how to handle the command
                         std::string cmd{values[index]};
                         if(cmd == CommandType::START)
                         {

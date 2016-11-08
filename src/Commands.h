@@ -3,6 +3,13 @@
 
 #include <string>
 
+struct EventType
+{
+public:
+	// Keys for event properties
+	static const std::string COMMAND;
+};
+
 struct CommandType
 {
 public:

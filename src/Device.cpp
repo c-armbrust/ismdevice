@@ -4,17 +4,32 @@
 #include <iostream>
 #include <stdio.h>
 #include <stdlib.h>
+#include "json.hpp"
 
 const char* Device::connectionString = "[connection string]";
 
 Device::Device()
 {
 	_state = &Singleton<ReadyState>::Instance();
+	settings = new DeviceSettings(this->getDeviceId(), _state->getStateName(), 10, "", 
+								  0.0025, 8.5, 3.75, 4, 16,
+								  0, 0, 
+								  0, 0, 0, 0);
 }
 
 void Device::ChangeState(DeviceState* s)
 {
 	_state = s;
+}
+
+// DeviceId is part of the connection string
+std::string Device::getDeviceId()
+{
+	std::string connStr = std::string{connectionString};
+	std::string searchPattern = "DeviceId=";
+	std::size_t pos_begin = connStr.find(searchPattern) + searchPattern.length();
+	std::size_t pos_end = connStr.find(";", pos_begin+1);
+	return connStr.substr(pos_begin, pos_end - pos_begin);
 }
 
 void Device::Start()
@@ -70,6 +85,7 @@ void Device::ReceiveC2D()
 
 
 
+// TODO: free memory of e.g buffer?
 IOTHUBMESSAGE_DISPOSITION_RESULT Device::ReceiveMessageCallback(IOTHUB_MESSAGE_HANDLE message, void* userContextCallback)
 {
 	Device* d = (Device*)userContextCallback;
@@ -92,62 +108,74 @@ IOTHUBMESSAGE_DISPOSITION_RESULT Device::ReceiveMessageCallback(IOTHUB_MESSAGE_H
 					// Handle only events with key EventType::COMMAND
                     if(std::string{keys[index]} == EventType::COMMAND)
                     {
-						// Switched by CommandType::<command> delegate to _state how to handle the command
-                        std::string cmd{values[index]};
-                        if(cmd == CommandType::START)
-                        {
-							d->_state->Start(d);
-                        }
-                        else if(cmd == CommandType::STOP)
-                        {
-							d->_state->Stop(d);
-                        }
-                        else if(cmd == CommandType::START_PREVIEW)
-                        {
-                            d->_state->StartPreview(d);
-                        }
-                        else if(cmd == CommandType::STOP_PREVIEW)
-                        {
-                            d->_state->StopPreview(d);
-                        }
-                        else if(cmd == CommandType::SET_DEVICE_SETTINGS)
-                        {
-                            d->_state->SetDeviceSettings(d);
-                        }
-                        else if(cmd == CommandType::GET_DEVICE_SETTINGS)
-                        {
-//                            d->_state->GetDeviceSettings(d); 
-                        }
-                        else
-                        {
-
-                        }
+						// Message Data
+						//
+    					size_t size;
+    					if (IoTHubMessage_GetByteArray(message, (const unsigned char**)&buffer, &size) == IOTHUB_MESSAGE_OK)
+    					{
+						// !!! provide the exact size to std::string ctor 
+        				std::string msg{buffer, 0, size};
+        				std::cout << "Received Message with Data: " << msg << " & Size=" << size << std::endl;
+	
+							// Switched by CommandType::<command> delegate to _state how to handle the command
+                        	std::string cmd{values[index]};
+                        	if(cmd == CommandType::START)
+                        	{
+								d->_state->Start(d);
+                        	}
+                       		else if(cmd == CommandType::STOP)
+                        	{
+								d->_state->Stop(d);
+                        	}
+                        	else if(cmd == CommandType::START_PREVIEW)
+                        	{
+                            	d->_state->StartPreview(d);
+                        	}
+                        	else if(cmd == CommandType::STOP_PREVIEW)
+                        	{
+                            	d->_state->StopPreview(d);
+                        	}
+                        	else if(cmd == CommandType::SET_DEVICE_SETTINGS)
+                        	{
+								std::cout << "\nReport before:" << std::endl;
+								d->settings->Report();	
+								d->settings->Deserialize(msg);
+								std::cout << "\nReport after:" << std::endl;
+								d->settings->Report();
+                            	d->_state->SetDeviceSettings(d);
+								
+								std::string foo = d->settings->Serialize();
+								std::cout << "Serialized String: " << std::endl;
+							 	std::cout << foo << std::endl;
+                        	}
+                        	else if(cmd == CommandType::GET_DEVICE_SETTINGS)
+                    	    {
+//              	              d->_state->GetDeviceSettings(d); 
+            	            }
+        	                else
+    	                    {
+	
+                        	}
+						}
                     }
                 }
             }
 
         }
     }
-
- 
-	// Message Data
-	//
-    size_t size;
-    if (IoTHubMessage_GetByteArray(message, (const unsigned char**)&buffer, &size) == IOTHUB_MESSAGE_OK)
-    {
-        std::string msg{buffer};
-        std::cout << "Received Message with Data: " << msg << " & Size=" << size << std::endl;
-    }
-
-    return IOTHUBMESSAGE_ACCEPTED;
+			return IOTHUBMESSAGE_ACCEPTED;
 }
 
 
 
+// ReadyState
+//
 ReadyState::ReadyState(){}
 ReadyState::~ReadyState(){}
 ReadyState::ReadyState(ReadyState const& s){}
 ReadyState& ReadyState::operator=(ReadyState const& s){}
+
+std::string ReadyState::getStateName() {return "ReadyState";}
 
 void ReadyState::Start(Device* d)
 {
@@ -192,10 +220,14 @@ void ReadyState::DoWork(Device* d)
 
 
 
+// RunState
+//
 RunState::RunState(){}
 RunState::~RunState(){}
 RunState::RunState(RunState const& s){}
 RunState& RunState::operator=(RunState const&){}
+
+std::string RunState::getStateName() {return "RunState";}
 
 void RunState::Start(Device* d)
 {
@@ -236,10 +268,14 @@ void RunState::DoWork(Device* d)
 
 
 
+// PreviewState
+//
 PreviewState::PreviewState(){}
 PreviewState::~PreviewState(){}
 PreviewState::PreviewState(PreviewState const& s){}
 PreviewState& PreviewState::operator=(PreviewState const& s){}
+
+std::string PreviewState::getStateName() {return "PreviewState";}
 
 void PreviewState::Start(Device* d)
 {
@@ -279,3 +315,102 @@ void PreviewState::DoWork(Device* d)
 {
     // TODO
 }
+
+
+
+// DeviceSettings
+//
+DeviceSettings::DeviceSettings()
+{
+
+}
+
+DeviceSettings::DeviceSettings(std::string DeviceId, std::string StateName, int CapturePeriod, std::string CurrentCaptureUri, // general settings
+							   double VarianceThreshold, double DistanceMapThreshold, double RGThreshold, double RestrictedFillingThreshold, double DilateValue,     // Matlab Algorithm Settings
+							   int Brightness, int Exposure, 								   // camera settings
+							   int PulseWidth, int Current, int Predelay, bool IsOn)        				   // pulse settings 
+{
+	this->DeviceId = DeviceId;
+	this->StateName = StateName;
+	this->CapturePeriod = CapturePeriod;
+	this->CurrentCaptureUri = CurrentCaptureUri;
+	this->VarianceThreshold = VarianceThreshold;
+	this->DistanceMapThreshold = DistanceMapThreshold;
+	this->RGThreshold = RGThreshold;
+	this->RestrictedFillingThreshold = RestrictedFillingThreshold;
+	this->DilateValue = DilateValue;
+	this->Brightness = Brightness;
+	this->Exposure = Exposure;
+	this->PulseWidth = PulseWidth;
+	this->Current = Current;
+	this->Predelay = Predelay;
+	this->IsOn = IsOn;
+}
+
+DeviceSettings::~DeviceSettings()
+{
+}
+
+std::string DeviceSettings::Serialize()
+{
+	nlohmann::json obj = {
+		{"DeviceId", DeviceId},
+		{"StateName", StateName},
+		{"CapturePeriod", CapturePeriod},
+		{"CurrentCaptureUri", CurrentCaptureUri},
+		{"VarianceThreshold", VarianceThreshold},
+		{"DistanceMapThreshold", DistanceMapThreshold},
+		{"RGThreshold", RGThreshold},
+		{"RestrictedFillingThreshold", RestrictedFillingThreshold},
+		{"DilateValue", DilateValue},
+		{"Brightness", Brightness},	
+		{"Exposure", Exposure},
+		{"PulseWidth", PulseWidth},
+		{"Current", Current},
+		{"Predelay", Predelay},
+		{"IsOn", IsOn}
+	};
+	
+	return obj.dump();
+}
+
+void DeviceSettings::Deserialize(std::string jsonStr)
+{
+	nlohmann::json values  = nlohmann::json::parse(jsonStr);
+	DeviceId = values["DeviceId"];
+    StateName = values["StateName"];
+    CapturePeriod = values["CapturePeriod"];
+    CurrentCaptureUri = values["CurrentCaptureUri"];
+    VarianceThreshold = values["VarianceThreshold"];
+    DistanceMapThreshold = values["DistanceMapThreshold"];
+    RGThreshold = values["RGThreshold"];
+    RestrictedFillingThreshold = values["RestrictedFillingThreshold"];
+    DilateValue = values["DilateValue"];
+    Brightness = values["Brightness"];
+    Exposure = values["Exposure"];
+    PulseWidth = values["PulseWidth"];
+    Current = values["Current"];
+    Predelay = values["Predelay"];
+    IsOn = values["IsOn"];	
+}
+
+
+void DeviceSettings::Report()
+{
+	std::cout << "DeviceId: " <<  DeviceId << std::endl;
+	std::cout << "StateName: " << StateName << std::endl;
+	std::cout << "CapturePeriod: " << CapturePeriod << std::endl;
+	std::cout << "CurrentCaptureUri: " << CurrentCaptureUri << std::endl;
+	std::cout << "VarianceThreshold: " << VarianceThreshold << std::endl;
+	std::cout << "DistanceMapThreshold: " << DistanceMapThreshold << std::endl;
+	std::cout << "RGThreshold: " << RGThreshold << std::endl;
+	std::cout << "RestrictedFillingThreshold: " << RestrictedFillingThreshold << std::endl;
+	std::cout << "DilateValue: " << DilateValue << std::endl;
+	std::cout << "Brightness: " << Brightness << std::endl;
+	std::cout << "Exposure: " << Exposure << std::endl;
+	std::cout << "PulseWidth: " << PulseWidth << std::endl;
+	std::cout << "Current: " << Current << std::endl;
+	std::cout << "Predelay: " << Predelay << std::endl;
+	std::cout << "IsOn: " << IsOn << std::endl;
+}
+

@@ -57,6 +57,11 @@ void Device::SetDeviceSettings()
 	_state->SetDeviceSettings(this);
 }
 
+void Device::GetDeviceSettings()
+{
+	_state->GetDeviceSettings(this);
+}
+
 
 
 void DeviceState::Start(Device*){}
@@ -64,6 +69,7 @@ void DeviceState::Stop(Device*){}
 void DeviceState::StartPreview(Device*){}
 void DeviceState::StopPreview(Device*){}
 void DeviceState::SetDeviceSettings(Device*){}
+void DeviceState::GetDeviceSettings(Device*){}
 void DeviceState::ChangeState(Device* d, DeviceState* s)
 {
 	d->ChangeState(s);
@@ -121,36 +127,27 @@ IOTHUBMESSAGE_DISPOSITION_RESULT Device::ReceiveMessageCallback(IOTHUB_MESSAGE_H
                         	std::string cmd{values[index]};
                         	if(cmd == CommandType::START)
                         	{
-								d->_state->Start(d);
+								d->Start();
                         	}
                        		else if(cmd == CommandType::STOP)
                         	{
-								d->_state->Stop(d);
+								d->Stop();
                         	}
                         	else if(cmd == CommandType::START_PREVIEW)
                         	{
-                            	d->_state->StartPreview(d);
+								d->StartPreview();
                         	}
                         	else if(cmd == CommandType::STOP_PREVIEW)
                         	{
-                            	d->_state->StopPreview(d);
+								d->StopPreview();
                         	}
                         	else if(cmd == CommandType::SET_DEVICE_SETTINGS)
                         	{
-								std::cout << "\nReport before:" << std::endl;
-								d->settings->Report();	
-								d->settings->Deserialize(msg);
-								std::cout << "\nReport after:" << std::endl;
-								d->settings->Report();
-                            	d->_state->SetDeviceSettings(d);
-								
-								std::string foo = d->settings->Serialize();
-								std::cout << "Serialized String: " << std::endl;
-							 	std::cout << foo << std::endl;
+								d->SetDeviceSettings();
                         	}
                         	else if(cmd == CommandType::GET_DEVICE_SETTINGS)
                     	    {
-//              	              d->_state->GetDeviceSettings(d); 
+              	              	d->GetDeviceSettings(); 
             	            }
         	                else
     	                    {
@@ -213,6 +210,12 @@ void ReadyState::SetDeviceSettings(Device* d)
     std::cout << "Set new DeviceSettings values!" << std::endl;
 }
 
+void ReadyState::GetDeviceSettings(Device* d)
+{
+	// ACK msg
+	std::cout << "+ Send DeviceSettings D2C message" << std::endl;
+}
+
 void ReadyState::DoWork(Device* d)
 {
 
@@ -259,6 +262,12 @@ void RunState::SetDeviceSettings(Device* d)
 {
     // NAK msg
     std::cout << "Reject setting DeviceSettings values in RunState!" << std::endl;
+}
+
+void RunState::GetDeviceSettings(Device* d)
+{
+	// ACK msg
+	std::cout << "+ Send DeviceSettings D2C message" << std::endl;
 }
 
 void RunState::DoWork(Device* d)
@@ -309,6 +318,12 @@ void PreviewState::SetDeviceSettings(Device* d)
     // set new DeviceSettings values
     // ACK msg
     std::cout << "Set new DeviceSettings values!" << std::endl;
+}
+
+void PreviewState::GetDeviceSettings(Device* d)
+{
+	// ACK msg
+	std::cout << "+ Send DeviceSettings D2C message" << std::endl;
 }
 
 void PreviewState::DoWork(Device* d)

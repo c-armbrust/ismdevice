@@ -46,6 +46,7 @@ public:
 	virtual void StartPreview(Device*)=0;
 	virtual void StopPreview(Device*)=0;
 	virtual void SetDeviceSettings(Device*)=0;
+	virtual void GetDeviceSettings(Device*)=0;
 	virtual void DoWork(Device*)=0;
 	virtual std::string getStateName()=0;
 
@@ -63,6 +64,7 @@ public:
 	virtual void StartPreview(Device*);
 	virtual void StopPreview(Device*);
 	virtual void SetDeviceSettings(Device*);
+	virtual void GetDeviceSettings(Device*);
 	virtual void DoWork(Device*);
 	virtual std::string getStateName();
 
@@ -82,6 +84,7 @@ public:
     virtual void StartPreview(Device*);
     virtual void StopPreview(Device*);                                                         
     virtual void SetDeviceSettings(Device*);
+	virtual void GetDeviceSettings(Device*);	
     virtual void DoWork(Device*);
 	virtual std::string getStateName();
 
@@ -101,6 +104,7 @@ public:
     virtual void StartPreview(Device*);
     virtual void StopPreview(Device*);                                                         
     virtual void SetDeviceSettings(Device*);
+	virtual void GetDeviceSettings(Device*);
     virtual void DoWork(Device*);
 	virtual std::string getStateName();
 

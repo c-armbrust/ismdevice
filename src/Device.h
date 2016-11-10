@@ -12,24 +12,31 @@
 class DeviceState;
 template<class T> class Singleton;
 class DeviceSettings;
+template<class T> class Singleton;
 
 class Device
 {
 public:
 	Device();
-	void Start();
-	void Stop();
-	void StartPreview();
-	void StopPreview();
-	void SetDeviceSettings();
-	void GetDeviceSettings();
-	static IOTHUBMESSAGE_DISPOSITION_RESULT ReceiveMessageCallback(IOTHUB_MESSAGE_HANDLE, void*);	  void ReceiveC2D();
+	IOTHUBMESSAGE_DISPOSITION_RESULT Start();
+	IOTHUBMESSAGE_DISPOSITION_RESULT Stop();
+	IOTHUBMESSAGE_DISPOSITION_RESULT StartPreview();
+	IOTHUBMESSAGE_DISPOSITION_RESULT StopPreview();
+	IOTHUBMESSAGE_DISPOSITION_RESULT SetDeviceSettings(std::string);
+	IOTHUBMESSAGE_DISPOSITION_RESULT GetDeviceSettings();
 	
-	std::string getDeviceId();
+void ReceiveC2D();
+	
 
 private:
 	friend class DeviceState;
+
 	void ChangeState(DeviceState*);
+	void UpdateSettings(std::string);
+	std::string getDeviceId();
+
+	static IOTHUBMESSAGE_DISPOSITION_RESULT ReceiveMessageCallback(IOTHUB_MESSAGE_HANDLE, void*);
+
 private:
 	DeviceState* _state;
 	static const char* connectionString;
@@ -41,17 +48,18 @@ private:
 class DeviceState
 {
 public:
-	virtual void Start(Device*)=0;
-	virtual void Stop(Device*)=0;
-	virtual void StartPreview(Device*)=0;
-	virtual void StopPreview(Device*)=0;
-	virtual void SetDeviceSettings(Device*)=0;
-	virtual void GetDeviceSettings(Device*)=0;
+	virtual IOTHUBMESSAGE_DISPOSITION_RESULT Start(Device*)=0;
+	virtual IOTHUBMESSAGE_DISPOSITION_RESULT Stop(Device*)=0;
+	virtual IOTHUBMESSAGE_DISPOSITION_RESULT StartPreview(Device*)=0;
+	virtual IOTHUBMESSAGE_DISPOSITION_RESULT StopPreview(Device*)=0;
+	virtual IOTHUBMESSAGE_DISPOSITION_RESULT SetDeviceSettings(Device*, std::string)=0;
+	virtual IOTHUBMESSAGE_DISPOSITION_RESULT GetDeviceSettings(Device*)=0;
 	virtual void DoWork(Device*)=0;
 	virtual std::string getStateName()=0;
 
 protected:
 	void ChangeState(Device*, DeviceState*);
+	void UpdateSettings(Device*, std::string);
 };
 
 
@@ -59,12 +67,12 @@ protected:
 class ReadyState : public DeviceState
 {
 public:
-	virtual void Start(Device*);
-	virtual void Stop(Device*);
-	virtual void StartPreview(Device*);
-	virtual void StopPreview(Device*);
-	virtual void SetDeviceSettings(Device*);
-	virtual void GetDeviceSettings(Device*);
+	virtual IOTHUBMESSAGE_DISPOSITION_RESULT Start(Device*);
+	virtual IOTHUBMESSAGE_DISPOSITION_RESULT Stop(Device*);
+	virtual IOTHUBMESSAGE_DISPOSITION_RESULT StartPreview(Device*);
+	virtual IOTHUBMESSAGE_DISPOSITION_RESULT StopPreview(Device*);
+	virtual IOTHUBMESSAGE_DISPOSITION_RESULT SetDeviceSettings(Device*, std::string);
+	virtual IOTHUBMESSAGE_DISPOSITION_RESULT GetDeviceSettings(Device*);
 	virtual void DoWork(Device*);
 	virtual std::string getStateName();
 
@@ -79,12 +87,12 @@ private:
 class RunState : public DeviceState
 { 
 public:  
-    virtual void Start(Device*);
-    virtual void Stop(Device*);                                                  
-    virtual void StartPreview(Device*);
-    virtual void StopPreview(Device*);                                                         
-    virtual void SetDeviceSettings(Device*);
-	virtual void GetDeviceSettings(Device*);	
+    virtual IOTHUBMESSAGE_DISPOSITION_RESULT Start(Device*);
+    virtual IOTHUBMESSAGE_DISPOSITION_RESULT Stop(Device*);                                     
+    virtual IOTHUBMESSAGE_DISPOSITION_RESULT StartPreview(Device*);
+    virtual IOTHUBMESSAGE_DISPOSITION_RESULT StopPreview(Device*);                                
+    virtual IOTHUBMESSAGE_DISPOSITION_RESULT SetDeviceSettings(Device*, std::string);
+	virtual IOTHUBMESSAGE_DISPOSITION_RESULT GetDeviceSettings(Device*);	
     virtual void DoWork(Device*);
 	virtual std::string getStateName();
 
@@ -99,12 +107,12 @@ private:
 class PreviewState : public DeviceState
 { 
 public:  
-    virtual void Start(Device*);
-    virtual void Stop(Device*);                                                  
-    virtual void StartPreview(Device*);
-    virtual void StopPreview(Device*);                                                         
-    virtual void SetDeviceSettings(Device*);
-	virtual void GetDeviceSettings(Device*);
+    virtual IOTHUBMESSAGE_DISPOSITION_RESULT Start(Device*);
+    virtual IOTHUBMESSAGE_DISPOSITION_RESULT Stop(Device*);                                       
+    virtual IOTHUBMESSAGE_DISPOSITION_RESULT StartPreview(Device*);
+    virtual IOTHUBMESSAGE_DISPOSITION_RESULT StopPreview(Device*);                             
+    virtual IOTHUBMESSAGE_DISPOSITION_RESULT SetDeviceSettings(Device*, std::string);
+	virtual IOTHUBMESSAGE_DISPOSITION_RESULT GetDeviceSettings(Device*);
     virtual void DoWork(Device*);
 	virtual std::string getStateName();
 

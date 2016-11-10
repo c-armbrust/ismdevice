@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include "json.hpp"
 
-const char* Device::connectionString = "[connection string]";
+const char* Device::connectionString = "";
 
 Device::Device()
 {
@@ -22,6 +22,15 @@ void Device::ChangeState(DeviceState* s)
 	_state = s;
 }
 
+void Device::UpdateSettings(std::string msgbody)
+{
+	std::cout << "\nold settings:" << std::endl;
+	settings->Report();
+	settings->Deserialize(msgbody);
+	std::cout << "\nnew settings:" << std::endl;
+	settings->Report();
+}
+
 // DeviceId is part of the connection string
 std::string Device::getDeviceId()
 {
@@ -32,50 +41,55 @@ std::string Device::getDeviceId()
 	return connStr.substr(pos_begin, pos_end - pos_begin);
 }
 
-void Device::Start()
+IOTHUBMESSAGE_DISPOSITION_RESULT Device::Start()
 {
-	_state->Start(this);
+	return _state->Start(this);
 }
 
-void Device::Stop()
+IOTHUBMESSAGE_DISPOSITION_RESULT Device::Stop()
 {
-	_state->Stop(this);
+	return _state->Stop(this);
 }
 
-void Device::StartPreview()
+IOTHUBMESSAGE_DISPOSITION_RESULT Device::StartPreview()
 {
-	_state->StartPreview(this);
+	return _state->StartPreview(this);
 }
 
-void Device::StopPreview()
+IOTHUBMESSAGE_DISPOSITION_RESULT Device::StopPreview()
 {
-	_state->StopPreview(this);
+	return _state->StopPreview(this);
 }
 
-void Device::SetDeviceSettings()
+IOTHUBMESSAGE_DISPOSITION_RESULT Device::SetDeviceSettings(std::string msgbody)
 {
-	_state->SetDeviceSettings(this);
+	return _state->SetDeviceSettings(this, msgbody);
 }
 
-void Device::GetDeviceSettings()
+IOTHUBMESSAGE_DISPOSITION_RESULT Device::GetDeviceSettings()
 {
-	_state->GetDeviceSettings(this);
+	return _state->GetDeviceSettings(this);
 }
 
 
 
-void DeviceState::Start(Device*){}
-void DeviceState::Stop(Device*){}
-void DeviceState::StartPreview(Device*){}
-void DeviceState::StopPreview(Device*){}
-void DeviceState::SetDeviceSettings(Device*){}
-void DeviceState::GetDeviceSettings(Device*){}
+IOTHUBMESSAGE_DISPOSITION_RESULT DeviceState::Start(Device*){}
+IOTHUBMESSAGE_DISPOSITION_RESULT DeviceState::Stop(Device*){}
+IOTHUBMESSAGE_DISPOSITION_RESULT DeviceState::StartPreview(Device*){}
+IOTHUBMESSAGE_DISPOSITION_RESULT DeviceState::StopPreview(Device*){}
+IOTHUBMESSAGE_DISPOSITION_RESULT DeviceState::SetDeviceSettings(Device*, std::string){}
+IOTHUBMESSAGE_DISPOSITION_RESULT DeviceState::GetDeviceSettings(Device*){}
+void DeviceState::DoWork(Device*){}
+
 void DeviceState::ChangeState(Device* d, DeviceState* s)
 {
 	d->ChangeState(s);
 }
 
-
+void DeviceState::UpdateSettings(Device* d, std::string msgbody)
+{
+	d->UpdateSettings(msgbody);	
+}
 
 void Device::ReceiveC2D()
 {
@@ -119,48 +133,48 @@ IOTHUBMESSAGE_DISPOSITION_RESULT Device::ReceiveMessageCallback(IOTHUB_MESSAGE_H
     					size_t size;
     					if (IoTHubMessage_GetByteArray(message, (const unsigned char**)&buffer, &size) == IOTHUB_MESSAGE_OK)
     					{
-						// !!! provide the exact size to std::string ctor 
-        				std::string msg{buffer, 0, size};
-        				std::cout << "Received Message with Data: " << msg << " & Size=" << size << std::endl;
+							// !!! provide the exact size to std::string ctor 
+        					std::string msgbody{buffer, 0, size};
 	
 							// Switched by CommandType::<command> delegate to _state how to handle the command
                         	std::string cmd{values[index]};
                         	if(cmd == CommandType::START)
                         	{
-								d->Start();
+								return d->Start();
                         	}
                        		else if(cmd == CommandType::STOP)
                         	{
-								d->Stop();
+								return d->Stop();
                         	}
                         	else if(cmd == CommandType::START_PREVIEW)
                         	{
-								d->StartPreview();
+								return d->StartPreview();
                         	}
                         	else if(cmd == CommandType::STOP_PREVIEW)
                         	{
-								d->StopPreview();
+								return d->StopPreview();
                         	}
                         	else if(cmd == CommandType::SET_DEVICE_SETTINGS)
                         	{
-								d->SetDeviceSettings();
+								return d->SetDeviceSettings(msgbody);
                         	}
                         	else if(cmd == CommandType::GET_DEVICE_SETTINGS)
                     	    {
-              	              	d->GetDeviceSettings(); 
+              	              	return d->GetDeviceSettings(); 
             	            }
         	                else
     	                    {
-	
+								std::cout << "- Unknown CommandType" << std::endl;	
                         	}
 						}
                     }
                 }
             }
-
         }
     }
-			return IOTHUBMESSAGE_ACCEPTED;
+
+	std::cout << "ReceiveMessageCallback returns with default IOTHUBMESSAGE_REJECTED." << std::endl;	
+	return IOTHUBMESSAGE_REJECTED;
 }
 
 
@@ -174,46 +188,60 @@ ReadyState& ReadyState::operator=(ReadyState const& s){}
 
 std::string ReadyState::getStateName() {return "ReadyState";}
 
-void ReadyState::Start(Device* d)
+IOTHUBMESSAGE_DISPOSITION_RESULT ReadyState::Start(Device* d)
 {
     // ACK msg
     // start timer
     std::cout << "+ Starting to run device!" << std::endl;
 	ChangeState(d, &Singleton<RunState>::Instance());
+
+	return IOTHUBMESSAGE_ACCEPTED;
 }
 
-void ReadyState::Stop(Device* d)
+IOTHUBMESSAGE_DISPOSITION_RESULT ReadyState::Stop(Device* d)
 {
     // NAK msg
     std::cout << "- Device is not running!" << std::endl;
+
+	return IOTHUBMESSAGE_REJECTED;
 }
 
-void ReadyState::StartPreview(Device* d)
+IOTHUBMESSAGE_DISPOSITION_RESULT ReadyState::StartPreview(Device* d)
 {
     // ACK msg
     // start timer
     std::cout << "+ Starting to run device in preview mode!" << std::endl;
 	ChangeState(d, &Singleton<PreviewState>::Instance());
+
+	return IOTHUBMESSAGE_ACCEPTED;
 }
 
-void ReadyState::StopPreview(Device* d)
+IOTHUBMESSAGE_DISPOSITION_RESULT ReadyState::StopPreview(Device* d)
 {
     // NAK msg
     std::cout << "- Device is not running!" << std::endl;
+	
+	return IOTHUBMESSAGE_REJECTED;
 }
 
-void ReadyState::SetDeviceSettings(Device* d)
+IOTHUBMESSAGE_DISPOSITION_RESULT ReadyState::SetDeviceSettings(Device* d, std::string msgbody)
 {
     // deserialize msg
     // set new DeviceSettings values
     // ACK msg
-    std::cout << "Set new DeviceSettings values!" << std::endl;
+    std::cout << "+ READY_STATE: Set new DeviceSettings values!" << std::endl;
+	
+	UpdateSettings(d, msgbody);
+
+	return IOTHUBMESSAGE_ACCEPTED;
 }
 
-void ReadyState::GetDeviceSettings(Device* d)
+IOTHUBMESSAGE_DISPOSITION_RESULT ReadyState::GetDeviceSettings(Device* d)
 {
 	// ACK msg
 	std::cout << "+ Send DeviceSettings D2C message" << std::endl;
+
+	return IOTHUBMESSAGE_ACCEPTED;
 }
 
 void ReadyState::DoWork(Device* d)
@@ -232,42 +260,54 @@ RunState& RunState::operator=(RunState const&){}
 
 std::string RunState::getStateName() {return "RunState";}
 
-void RunState::Start(Device* d)
+IOTHUBMESSAGE_DISPOSITION_RESULT RunState::Start(Device* d)
 {
     // NAK msg
     std::cout << "- Device is already running!" << std::endl;
+
+	return IOTHUBMESSAGE_REJECTED;
 }
 
-void RunState::Stop(Device* d)
+IOTHUBMESSAGE_DISPOSITION_RESULT RunState::Stop(Device* d)
 {
     // ACK msg
     // stop timer
     std::cout << "+ Stop running the device and go back to ready!" << std::endl;
 	ChangeState(d, &Singleton<ReadyState>::Instance());
+
+	return IOTHUBMESSAGE_ACCEPTED;
 }
 
-void RunState::StartPreview(Device* d)
+IOTHUBMESSAGE_DISPOSITION_RESULT RunState::StartPreview(Device* d)
 {
     // NAK msg
     std::cout << "- Can't go to preview mode from running device, stop it first!" << std::endl;
+
+	return IOTHUBMESSAGE_REJECTED;
 }
 
-void RunState::StopPreview(Device* d)
+IOTHUBMESSAGE_DISPOSITION_RESULT RunState::StopPreview(Device* d)
 {
     // NAK msg
     std::cout << "- Device is not running in preview mode!" << std::endl;
+
+	return IOTHUBMESSAGE_REJECTED;
 }
 
-void RunState::SetDeviceSettings(Device* d)
+IOTHUBMESSAGE_DISPOSITION_RESULT RunState::SetDeviceSettings(Device* d, std::string msgbody)
 {
     // NAK msg
-    std::cout << "Reject setting DeviceSettings values in RunState!" << std::endl;
+    std::cout << "- RUN_STATE: Reject setting DeviceSettings values in RunState!" << std::endl;
+
+	return IOTHUBMESSAGE_REJECTED;
 }
 
-void RunState::GetDeviceSettings(Device* d)
+IOTHUBMESSAGE_DISPOSITION_RESULT RunState::GetDeviceSettings(Device* d)
 {
 	// ACK msg
 	std::cout << "+ Send DeviceSettings D2C message" << std::endl;
+
+	return IOTHUBMESSAGE_ACCEPTED;
 }
 
 void RunState::DoWork(Device* d)
@@ -286,44 +326,58 @@ PreviewState& PreviewState::operator=(PreviewState const& s){}
 
 std::string PreviewState::getStateName() {return "PreviewState";}
 
-void PreviewState::Start(Device* d)
+IOTHUBMESSAGE_DISPOSITION_RESULT PreviewState::Start(Device* d)
 {
     // NAK msg
     std::cout << "- Can't go to run mode from preview mode device, stop preview first!" << std::endl;
+
+	return IOTHUBMESSAGE_REJECTED;
 }
 
-void PreviewState::Stop(Device* d)
+IOTHUBMESSAGE_DISPOSITION_RESULT PreviewState::Stop(Device* d)
 {
     // NAK msg
     std::cout << "- Device is not running in run mode!" << std::endl;
+
+	return IOTHUBMESSAGE_REJECTED;
 }
 
-void PreviewState::StartPreview(Device* d)
+IOTHUBMESSAGE_DISPOSITION_RESULT PreviewState::StartPreview(Device* d)
 {
     // NAK msg
     std::cout << "- Device is already running in preview mode!" << std::endl;
+	
+	return IOTHUBMESSAGE_REJECTED;
 }
 
-void PreviewState::StopPreview(Device* d)
+IOTHUBMESSAGE_DISPOSITION_RESULT PreviewState::StopPreview(Device* d)
 {
     // ACK msg
     // stop timer
     std::cout << "+ Stop running the preview and go back to ready!" << std::endl;
 	ChangeState(d, &Singleton<ReadyState>::Instance());
+
+	return IOTHUBMESSAGE_ACCEPTED;
 }
 
-void PreviewState::SetDeviceSettings(Device* d)
+IOTHUBMESSAGE_DISPOSITION_RESULT PreviewState::SetDeviceSettings(Device* d, std::string msgbody)
 {
     // deserialize msg
     // set new DeviceSettings values
     // ACK msg
-    std::cout << "Set new DeviceSettings values!" << std::endl;
+    std::cout << "+ PREVIEW_STATE: Set new DeviceSettings values!" << std::endl;
+
+	UpdateSettings(d, msgbody);
+
+	return IOTHUBMESSAGE_ACCEPTED;
 }
 
-void PreviewState::GetDeviceSettings(Device* d)
+IOTHUBMESSAGE_DISPOSITION_RESULT PreviewState::GetDeviceSettings(Device* d)
 {
 	// ACK msg
 	std::cout << "+ Send DeviceSettings D2C message" << std::endl;
+
+	return IOTHUBMESSAGE_ACCEPTED;
 }
 
 void PreviewState::DoWork(Device* d)

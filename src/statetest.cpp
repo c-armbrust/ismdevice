@@ -6,7 +6,7 @@ int main()
 	Device* d = new Device(); 
 
 	// Full state test
-	//
+	/*
 	d->Stop();
 	d->StopPreview();
 	std::cout << std::endl;
@@ -24,6 +24,7 @@ int main()
 	d->Stop();
 	d->StopPreview();
 	std::cout << std::endl;
+	*/
 
 	// IoT Hub
 	std::thread receivec2d([&]{ d->ReceiveC2D(); });

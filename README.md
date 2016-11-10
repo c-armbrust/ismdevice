@@ -5,6 +5,6 @@ The contained .a files are compiled for x86 not armhf. I run the app not on the 
 
 Azure IoT devices C SDK: https://github.com/Azure/azure-iot-sdks/tree/master/c
 
-#device code
+#service code
 
 https://github.com/c-armbrust/ismserviceconsole

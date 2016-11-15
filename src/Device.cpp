@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include "json.hpp"
 
-const char* Device::connectionString = "";
+const char* Device::connectionString = "[connection string]";
 
 Device::Device()
 {
@@ -15,6 +15,9 @@ Device::Device()
 								  0.0025, 8.5, 3.75, 4, 16,
 								  0, 0, 
 								  0, 0, 0, 0);
+	platform_init();
+	iotHubClientHandle = IoTHubClient_CreateFromConnectionString(connectionString, AMQP_Protocol);
+	
 }
 
 void Device::ChangeState(DeviceState* s)
@@ -81,6 +84,9 @@ IOTHUBMESSAGE_DISPOSITION_RESULT DeviceState::SetDeviceSettings(Device*, std::st
 IOTHUBMESSAGE_DISPOSITION_RESULT DeviceState::GetDeviceSettings(Device*){}
 void DeviceState::DoWork(Device*){}
 
+
+
+//  
 void DeviceState::ChangeState(Device* d, DeviceState* s)
 {
 	d->ChangeState(s);
@@ -91,16 +97,53 @@ void DeviceState::UpdateSettings(Device* d, std::string msgbody)
 	d->UpdateSettings(msgbody);	
 }
 
+void DeviceState::SendD2C_DeviceSettings(Device* d)
+{
+	d->SendD2C_DeviceSettings();
+}
+
+
+
 void Device::ReceiveC2D()
 {
-	platform_init();
-    IOTHUB_CLIENT_HANDLE iotHubClientHandle;
-    iotHubClientHandle = IoTHubClient_CreateFromConnectionString(connectionString, AMQP_Protocol);    IoTHubClient_SetMessageCallback(iotHubClientHandle, ReceiveMessageCallback, this);
+	IoTHubClient_SetMessageCallback(iotHubClientHandle, ReceiveMessageCallback, this);
 	
 	while(1)
     {   
         ThreadAPI_Sleep(1000);
     }
+}
+
+void Device::SendD2C_DeviceSettings()
+{
+    std::thread t([&]{
+	
+		IOTHUB_MESSAGE_HANDLE messageHandle; 	
+		char sendBuffer[MAX_SEND_BUFFER_SIZE];
+	
+		// fill send buffer	
+		sprintf_s(sendBuffer, MAX_SEND_BUFFER_SIZE, settings->Serialize().c_str());
+		messageHandle = IoTHubMessage_CreateFromByteArray((const unsigned char*)sendBuffer, strlen(sendBuffer));
+		
+		// set event properties	
+		MAP_HANDLE propMap = IoTHubMessage_Properties(messageHandle);
+		Map_AddOrUpdate(propMap, EventType::D2C_COMMAND.c_str(), CommandType::UPDATE_DASHBOARD_CONTROLS.c_str());
+	
+		std::cout << "send message, size=" << strlen(sendBuffer) << std::endl;
+	
+		// send the message
+		IoTHubClient_SendEventAsync(iotHubClientHandle, messageHandle, SendConfirmationCallback, this);
+	});
+	
+	t.detach();
+}
+
+
+void Device::SendConfirmationCallback(IOTHUB_CLIENT_CONFIRMATION_RESULT result, void* userContextCallback)
+{
+	//Device* d = (Device*)userContextCallback;
+	
+	std::cout << "send confirmed." << std::endl;
 }
 
 
@@ -125,8 +168,8 @@ IOTHUBMESSAGE_DISPOSITION_RESULT Device::ReceiveMessageCallback(IOTHUB_MESSAGE_H
                 for(size_t index = 0; index < propertyCount; index++)
                 {
 					// Filter all iot hub events on a high level. 
-					// Handle only events with key EventType::COMMAND
-                    if(std::string{keys[index]} == EventType::COMMAND)
+					// Handle only events with key EventType::C2D_COMMAND
+                    if(std::string{keys[index]} == EventType::C2D_COMMAND)
                     {
 						// Message Data
 						//
@@ -241,6 +284,9 @@ IOTHUBMESSAGE_DISPOSITION_RESULT ReadyState::GetDeviceSettings(Device* d)
 	// ACK msg
 	std::cout << "+ Send DeviceSettings D2C message" << std::endl;
 
+	//std::thread t([&]{SendD2C_DeviceSettings(d);});
+	//t.join();
+	SendD2C_DeviceSettings(d);
 	return IOTHUBMESSAGE_ACCEPTED;
 }
 

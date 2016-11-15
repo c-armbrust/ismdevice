@@ -9,6 +9,11 @@
 #include "iothubtransportamqp.h"
 #include <thread>
 
+// max event message size on IoT Hub = max brokered message size for servicebus = 256kB
+#define MAX_SEND_BUFFER_SIZE 262144
+
+
+
 class DeviceState;
 template<class T> class Singleton;
 class DeviceSettings;
@@ -34,11 +39,14 @@ private:
 	void ChangeState(DeviceState*);
 	void UpdateSettings(std::string);
 	std::string getDeviceId();
-
 	static IOTHUBMESSAGE_DISPOSITION_RESULT ReceiveMessageCallback(IOTHUB_MESSAGE_HANDLE, void*);
+	static void SendConfirmationCallback(IOTHUB_CLIENT_CONFIRMATION_RESULT, void*);
+	void SendD2C_DeviceSettings();
+
 
 private:
 	DeviceState* _state;
+	IOTHUB_CLIENT_HANDLE iotHubClientHandle;
 	static const char* connectionString;
 	DeviceSettings* settings;
 };
@@ -60,6 +68,7 @@ public:
 protected:
 	void ChangeState(Device*, DeviceState*);
 	void UpdateSettings(Device*, std::string);
+	void SendD2C_DeviceSettings(Device*);
 };
 
 

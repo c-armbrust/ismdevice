@@ -1,6 +1,7 @@
 #include "Commands.h"
 
-const std::string EventType::COMMAND = "D_Command";
+const std::string EventType::C2D_COMMAND = "D_C2D_Command";
+const std::string EventType::D2C_COMMAND = "D_D2C_Command";
 
 const std::string CommandType::UNPROVISION{"D_Unprovision"};
 const std::string CommandType::PROVISION{"D_Provision"};

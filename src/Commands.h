@@ -7,7 +7,8 @@ struct EventType
 {
 public:
 	// Keys for event properties
-	static const std::string COMMAND;
+	static const std::string C2D_COMMAND;
+	static const std::string D2C_COMMAND;
 };
 
 struct CommandType

@@ -28,6 +28,12 @@ int main()
 
 	// IoT Hub
 	std::thread receivec2d([&]{ d->ReceiveC2D(); });
-	receivec2d.join();
+	//receivec2d.join();
+	receivec2d.detach();
+
+	while(1)
+	{
+		ThreadAPI_Sleep(1000);
+	}
 return 0;
 }
